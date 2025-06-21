@@ -1,7 +1,13 @@
+import javax.swing.SwingUtilities;
+
 public class Main {
     public static void main(String[] args) {
-        Window window = new Window();
-        Thread t1 = new Thread(window);
-        t1.start();
+        // Use invokeLater to ensure GUI is created on the Event Dispatch Thread
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new Window();
+            }
+        });
     }
 }

@@ -14,4 +14,8 @@ public class Constants {
 
     public static double TOOLBAR_HEIGHT;
     public static double INSETS_BOTTOM;
+
+
+    public static double MAX_ANGLE = Math.toRadians(45); // Max bounce angle in radians (45 degrees)
+    public static double SPEED_INCREASE = 1.03; // Increase ball speed by 3% on each hit
 }
