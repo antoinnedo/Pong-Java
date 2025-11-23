@@ -7,11 +7,8 @@ public class MenuOverlay {
     public Font mainFont = new Font("Arial", Font.BOLD, 32);
 
     // --- Buttons ---
-    // Main Menu
     public Rectangle2D.Float startButton = new Rectangle2D.Float(300, 250, 230, 50);
     public Rectangle2D.Float loadButton = new Rectangle2D.Float(300, 320, 230, 50);
-
-    // Pause Menu
     public Rectangle2D.Float resumeButton = new Rectangle2D.Float(300, 220, 230, 50);
     public Rectangle2D.Float resetButton = new Rectangle2D.Float(300, 290, 230, 50);
     public Rectangle2D.Float saveButton = new Rectangle2D.Float(300, 360, 230, 50);
@@ -63,19 +60,26 @@ public class MenuOverlay {
 
         File[] files = saveManager.getSaveFiles();
         for (int i = 0; i < files.length; i++) {
-            Rectangle2D.Float fileBtn = new Rectangle2D.Float(300, startY + (i * 60), 230, 50);
+            // File Button
+            Rectangle2D.Float fileBtn = new Rectangle2D.Float(250, startY + (i * 60), 280, 50);
             g2.setColor(Color.DARK_GRAY);
             g2.fill(fileBtn);
             g2.setColor(Color.WHITE);
             String fname = files[i].getName();
-            if (fname.length() > 12) fname = fname.substring(0, 12) + "...";
+            if (fname.length() > 15) fname = fname.substring(0, 12) + "...";
             g2.drawString(fname, (int) (fileBtn.x + 10), (int) (fileBtn.y + 35));
+
+            // Delete Button (Red X)
+            Rectangle2D.Float delBtn = new Rectangle2D.Float(540, startY + (i * 60), 50, 50);
+            g2.setColor(Color.RED);
+            g2.fill(delBtn);
+            g2.setColor(Color.WHITE);
+            g2.drawString("X", (int)(delBtn.x + 15), (int)(delBtn.y + 35));
         }
 
         drawButton(g2, backButton, Color.GRAY, "Back", 80, 35);
     }
 
-    // Helper to draw buttons
     private void drawButton(Graphics2D g2, Rectangle2D.Float rect, Color color, String text, int xOff, int yOff) {
         g2.setColor(color);
         g2.fill(rect);

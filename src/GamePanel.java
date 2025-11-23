@@ -8,17 +8,14 @@ public class GamePanel extends JPanel implements Runnable {
 
     private Thread gameThread;
 
-    // Game Entities
     public Rect playerOne, ai;
     public PlayerController playerController;
     public AIController aiController;
     public Ball ball;
 
-    // Scores
     private int playerOneScore = 0;
     private int aiScore = 0;
 
-    // Sub-systems
     private SaveManager saveManager;
     private MenuOverlay menuOverlay;
     private GameInput gameInput;
@@ -27,47 +24,55 @@ public class GamePanel extends JPanel implements Runnable {
         this.setPreferredSize(new Dimension(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT));
         this.setFocusable(true);
 
-        // Initialize Sub-systems
         saveManager = new SaveManager();
         menuOverlay = new MenuOverlay();
         gameInput = new GameInput(this);
 
-        // Attach Input
         this.addMouseListener(gameInput);
         this.addMouseMotionListener(gameInput);
         this.addKeyListener(gameInput);
 
-        // Initialize Game Objects
-        // 1. Create Paddles
+        // 1. Create Controllers & Paddles
         playerOne = new Rect(Constants.HORIZONTAL_PADDING, 40, Constants.PADDLE_WIDTH, Constants.PADDLE_HEIGHT, Constants.PADDLE_COLOR);
         playerController = new PlayerController(playerOne);
+        playerController.setBounds(0, Constants.SCREEN_WIDTH * 0.25);
+
         ai = new Rect(Constants.SCREEN_WIDTH - Constants.PADDLE_WIDTH - Constants.HORIZONTAL_PADDING, 40, Constants.PADDLE_WIDTH, Constants.PADDLE_HEIGHT, Constants.PADDLE_COLOR);
+        PlayerController aiPaddleController = new PlayerController(ai);
+        aiPaddleController.setBounds(Constants.SCREEN_WIDTH * 0.75, Constants.SCREEN_WIDTH);
 
-// 2. Create Ball (Needs paddles first)
+        // 2. Create Ball
         Rect ballRect = new Rect(Constants.SCREEN_WIDTH / 2.0, Constants.SCREEN_HEIGHT / 2.0, Constants.BALL_WIDTH, Constants.BALL_WIDTH, Color.WHITE);
-        ball = new Ball(ballRect, playerOne, ai);
+        ball = new Ball(ballRect, playerOne, ai, playerController, aiPaddleController);
 
-// 3. Create AI (Needs ball first)
-        aiController = new AIController(new PlayerController(ai), ball);
+        // 3. Create AI Logic
+        aiController = new AIController(aiPaddleController, ball);
+        aiController.setBounds(Constants.SCREEN_WIDTH * 0.75, Constants.SCREEN_WIDTH - 40);
     }
 
-    // --- Core Logic ---
     public void startGame() {
         gameThread = new Thread(this);
         gameThread.start();
     }
 
     public void update(double dt) {
-        playerController.update(dt);
-        aiController.update(dt);
-        ball.update(dt);
+        int subSteps = 4;
+        double stepDt = dt / subSteps;
 
-        if (ball.rect.x + ball.rect.width < 0) {
-            aiScore++;
-            ball.reset();
-        } else if (ball.rect.x > Constants.SCREEN_WIDTH) {
-            playerOneScore++;
-            ball.reset();
+        for (int i = 0; i < subSteps; i++) {
+            playerController.update(stepDt);
+            aiController.update(stepDt);
+            ball.update(stepDt);
+
+            if (ball.rect.x + ball.rect.width < 0) {
+                aiScore++;
+                ball.reset();
+                break;
+            } else if (ball.rect.x > Constants.SCREEN_WIDTH) {
+                playerOneScore++;
+                ball.reset();
+                break;
+            }
         }
     }
 
@@ -100,13 +105,18 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void drawGame(Graphics2D g2) {
+        g2.setColor(new Color(128, 0, 128, 50));
+        g2.fillRect(0, 0, (int)(Constants.SCREEN_WIDTH * 0.25), Constants.SCREEN_HEIGHT);
+        g2.fillRect((int)(Constants.SCREEN_WIDTH * 0.75), 0, (int)(Constants.SCREEN_WIDTH * 0.25), Constants.SCREEN_HEIGHT);
+
         g2.setFont(menuOverlay.mainFont);
         g2.setColor(Color.WHITE);
         String scoreText = playerOneScore + " : " + aiScore;
         g2.drawString(scoreText, (Constants.SCREEN_WIDTH / 2) - (g2.getFontMetrics().stringWidth(scoreText) / 2), 50);
+
         playerOne.draw(g2);
         ai.draw(g2);
-        ball.rect.draw(g2);
+        ball.draw(g2); // <-- Changed to use circle draw method
     }
 
     @Override
@@ -121,11 +131,10 @@ public class GamePanel extends JPanel implements Runnable {
                 update(deltaTime);
             }
             repaint();
-            try { Thread.sleep(16); } catch (InterruptedException e) { e.printStackTrace(); }
+            try { Thread.sleep(8); } catch (InterruptedException e) { e.printStackTrace(); }
         }
     }
 
-    // --- Getters & Setters for Helper Classes ---
     public GameState getGameState() { return gameState; }
     public void setGameState(GameState state) { this.gameState = state; }
     public MenuOverlay getMenuOverlay() { return menuOverlay; }

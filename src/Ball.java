@@ -1,19 +1,32 @@
+import java.awt.Graphics2D;
+import java.awt.Color;
+
 public class Ball {
     public Rect rect;
     public Rect leftPaddle, rightPaddle;
+    private PlayerController leftController, rightController;
 
     public double vy = -180.0;
     public double vx = -150.0;
-    
-    public Ball(Rect rect, Rect leftPaddle, Rect rightPaddle) {
+
+    private static final double FRICTION_Y = 0.4;
+    private static final double POWER_X = 0.3;
+
+    public Ball(Rect rect, Rect leftPaddle, Rect rightPaddle, PlayerController leftPc, PlayerController rightPc) {
         this.rect = rect;
         this.leftPaddle = leftPaddle;
         this.rightPaddle = rightPaddle;
+        this.leftController = leftPc;
+        this.rightController = rightPc;
     }
 
-    /**
-     * Resets the ball to the center of the screen with its default velocity.
-     */
+    // --- NEW: Custom Draw Method for Circle ---
+    public void draw(Graphics2D g2) {
+        g2.setColor(rect.color);
+        // Draw an oval using the rect's dimensions
+        g2.fillOval((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height);
+    }
+
     public void reset() {
         this.rect.x = Constants.SCREEN_WIDTH / 2.0;
         this.rect.y = Constants.SCREEN_HEIGHT / 2.0;
@@ -21,73 +34,55 @@ public class Ball {
         this.vy = -180.0;
     }
 
-    /**
-     * Updates the ball's position and handles all collision physics.
-     * @param dt The time delta since the last frame.
-     */
     public void update(double dt) {
-
-        // --- Paddle Collision Physics ---
-
-        // Check collision with the left paddle (player)
-        if (vx < 0) { // Only check if moving left
-            if (this.rect.x <= this.leftPaddle.x + this.leftPaddle.width && 
-                this.rect.y + this.rect.height >= this.leftPaddle.y && 
-                this.rect.y <= this.leftPaddle.y + this.leftPaddle.height) {
-                
-                calculateBounceAngle(leftPaddle);
-            }
-        } 
-        // Check collision with the right paddle (AI)
-        else if (vx > 0) { // Only check if moving right
-            if (this.rect.x + this.rect.width >= this.rightPaddle.x &&
-                this.rect.y + this.rect.height >= this.rightPaddle.y && 
-                this.rect.y <= this.rightPaddle.y + this.rightPaddle.height) {
-
-                calculateBounceAngle(rightPaddle);
-            }
-        }
-
-        // --- Wall Collision Physics ---
-        if (vy > 0) {
-            if (this.rect.y + this.rect.height >= Constants.SCREEN_HEIGHT) {
-                this.vy *= -1; // Invert vertical velocity
-            }
-        } else if (vy < 0) {
-            if (this.rect.y <= Constants.TOOLBAR_HEIGHT) {
-                this.vy *= -1; // Invert vertical velocity
-            }
-        }
-        
-        // Update ball's position based on its velocity
+        // 1. Move First
         this.rect.x += vx * dt;
         this.rect.y += vy * dt;
+
+        // 2. Collision Checks (Standard AABB)
+        if (vx < 0) {
+            if (rect.x <= leftPaddle.x + leftPaddle.width && rect.x + rect.width >= leftPaddle.x &&
+                    rect.y + rect.height >= leftPaddle.y && rect.y <= leftPaddle.y + leftPaddle.height) {
+
+                this.rect.x = leftPaddle.x + leftPaddle.width;
+                calculateBounce(leftPaddle, leftController);
+            }
+        } else if (vx > 0) {
+            if (rect.x + rect.width >= rightPaddle.x && rect.x <= rightPaddle.x + rightPaddle.width &&
+                    rect.y + rect.height >= rightPaddle.y && rect.y <= rightPaddle.y + rightPaddle.height) {
+
+                this.rect.x = rightPaddle.x - rect.width;
+                calculateBounce(rightPaddle, rightController);
+            }
+        }
+
+        // Wall Collision
+        if (vy > 0 && rect.y + rect.height >= Constants.SCREEN_HEIGHT) {
+            vy *= -1;
+            rect.y = Constants.SCREEN_HEIGHT - rect.height;
+        } else if (vy < 0 && rect.y <= Constants.TOOLBAR_HEIGHT) {
+            vy *= -1;
+            rect.y = Constants.TOOLBAR_HEIGHT;
+        }
     }
 
-    /**
-     * Calculates the new velocity of the ball after hitting a paddle.
-     * @param paddle The paddle that was hit.
-     */
-    private void calculateBounceAngle(Rect paddle) {
-        // Calculate the center of the paddle and ball
+    private void calculateBounce(Rect paddle, PlayerController controller) {
         double paddleCenter = paddle.y + (paddle.height / 2.0);
-        double ballCenter = this.rect.y + (this.rect.height / 2.0);
-
-        // Get the relative intersection point (-1 for top, 0 for center, 1 for bottom)
+        double ballCenter = rect.y + (rect.height / 2.0);
         double relativeIntersectY = (paddleCenter - ballCenter) / (paddle.height / 2.0);
-
-        // Convert the intersection point to a bounce angle
         double bounceAngle = relativeIntersectY * Constants.MAX_ANGLE;
-        
-        // Get the current speed and increase it
+
         double currentSpeed = Math.sqrt(vx * vx + vy * vy) * Constants.SPEED_INCREASE;
-        
-        // The new X velocity is based on the cosine of the angle
-        // The direction is inverted based on which paddle was hit
-        double direction = (this.vx > 0) ? -1.0 : 1.0;
-        this.vx = currentSpeed * Math.cos(bounceAngle) * direction;
-        
-        // The new Y velocity is based on the sine of the angle
-        this.vy = currentSpeed * -Math.sin(bounceAngle);
+        double direction = (vx > 0) ? -1.0 : 1.0;
+
+        vx = currentSpeed * Math.cos(bounceAngle) * direction;
+        vy = currentSpeed * -Math.sin(bounceAngle);
+
+        vy += controller.vy * FRICTION_Y;
+        if (direction < 0 && controller.vx < 0) vx += controller.vx * POWER_X;
+        if (direction > 0 && controller.vx > 0) vx += controller.vx * POWER_X;
+
+        double maxSpeed = 3000.0;
+        if (Math.abs(vx) > maxSpeed) vx = Math.signum(vx) * maxSpeed;
     }
 }

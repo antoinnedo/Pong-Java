@@ -1,26 +1,61 @@
 public class PlayerController {
     public Rect rect;
-    
-    // This constructor is now for both the Player and the AI,
-    // as the player is no longer controlled by the keyboard.
+
+    // Boundaries for 2D movement
+    private double minX, maxX;
+
+    // Velocity tracking (for transferring momentum to the ball)
+    public double vx, vy;
+    private double lastX, lastY;
+
     public PlayerController(Rect rect) {
         this.rect = rect;
+        this.lastX = rect.x;
+        this.lastY = rect.y;
     }
 
-    // The update method is now only needed for the AI's logic,
-    // but we'll leave it for potential future use.
-    // Player movement is now handled directly by the mouse in GamePanel.
+    // Set the allowed movement zone (called from GamePanel)
+    public void setBounds(double minX, double maxX) {
+        this.minX = minX;
+        this.maxX = maxX;
+    }
+
     public void update(double dt) {
-        // This space can be used for other power-ups or effects in the future.
+        // 1. Calculate Velocity based on how much we moved since last frame
+        if (dt > 0) {
+            this.vx = (rect.x - lastX) / dt;
+            this.vy = (rect.y - lastY) / dt;
+        }
+
+        // 2. Enforce Boundaries
+        if (rect.x < minX) rect.x = minX;
+        if (rect.x > maxX) rect.x = maxX;
+        if (rect.y < Constants.TOOLBAR_HEIGHT) rect.y = Constants.TOOLBAR_HEIGHT;
+        if (rect.y + rect.height > Constants.SCREEN_HEIGHT) rect.y = Constants.SCREEN_HEIGHT - rect.height;
+
+        // 3. Update last positions for next frame
+        this.lastX = rect.x;
+        this.lastY = rect.y;
     }
 
+    // AI Helper methods
     public void moveUp(double dt) {
-        if (this.rect.y - Constants.PADDLE_SPEED * dt > Constants.TOOLBAR_HEIGHT)
-            this.rect.y -= Constants.PADDLE_SPEED * dt;
+        if (rect.y - Constants.PADDLE_SPEED * dt > Constants.TOOLBAR_HEIGHT)
+            rect.y -= Constants.PADDLE_SPEED * dt;
     }
-    
+
     public void moveDown(double dt) {
-        if (this.rect.y + Constants.PADDLE_SPEED * dt + rect.height < Constants.SCREEN_HEIGHT)
-            this.rect.y += Constants.PADDLE_SPEED * dt;
+        if (rect.y + Constants.PADDLE_SPEED * dt + rect.height < Constants.SCREEN_HEIGHT)
+            rect.y += Constants.PADDLE_SPEED * dt;
+    }
+
+    public void moveLeft(double dt) {
+        if (rect.x - Constants.PADDLE_SPEED * dt > minX)
+            rect.x -= Constants.PADDLE_SPEED * dt;
+    }
+
+    public void moveRight(double dt) {
+        if (rect.x + Constants.PADDLE_SPEED * dt < maxX)
+            rect.x += Constants.PADDLE_SPEED * dt;
     }
 }

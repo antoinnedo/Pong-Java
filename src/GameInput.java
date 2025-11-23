@@ -47,8 +47,13 @@ public class GameInput extends MouseAdapter implements KeyListener {
         if (panel.getGameState() == GamePanel.GameState.PLAYING) {
             Rect p1 = panel.playerOne;
             p1.y = e.getY() - (p1.height / 2.0);
-            if (p1.y < Constants.TOOLBAR_HEIGHT) p1.y = Constants.TOOLBAR_HEIGHT;
-            if (p1.y + p1.height > Constants.SCREEN_HEIGHT) p1.y = Constants.SCREEN_HEIGHT - p1.height;
+
+            // X Movement mapped to the first 1/4 of the screen
+            double maxPlayerX = Constants.SCREEN_WIDTH * 0.25;
+            p1.x = e.getX() - (p1.width / 2.0);
+
+            if (p1.x < 0) p1.x = 0;
+            if (p1.x > maxPlayerX) p1.x = maxPlayerX;
         }
     }
 
@@ -74,7 +79,20 @@ public class GameInput extends MouseAdapter implements KeyListener {
         int startY = isSaveMode ? 170 : 100;
 
         for (int i = 0; i < files.length; i++) {
-            Rectangle2D.Float fileBtn = new Rectangle2D.Float(300, startY + (i * 60), 230, 50);
+            // Main File Button
+            Rectangle2D.Float fileBtn = new Rectangle2D.Float(250, startY + (i * 60), 280, 50);
+            // Delete Button
+            Rectangle2D.Float delBtn = new Rectangle2D.Float(540, startY + (i * 60), 50, 50);
+
+            if (delBtn.contains(e.getPoint())) {
+                int confirm = JOptionPane.showConfirmDialog(panel, "Delete " + files[i].getName() + "?", "Delete Save", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    panel.getSaveManager().deleteSave(files[i].getName());
+                    panel.repaint(); // Refresh list
+                }
+                return;
+            }
+
             if (fileBtn.contains(e.getPoint())) {
                 if (isSaveMode) {
                     int resp = JOptionPane.showConfirmDialog(panel, "Overwrite " + files[i].getName() + "?", "Confirm", JOptionPane.YES_NO_OPTION);
@@ -94,8 +112,7 @@ public class GameInput extends MouseAdapter implements KeyListener {
         }
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) {
+    @Override public void keyPressed(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             GamePanel.GameState state = panel.getGameState();
             if (state == GamePanel.GameState.PLAYING) panel.setGameState(GamePanel.GameState.PAUSED);
@@ -104,7 +121,6 @@ public class GameInput extends MouseAdapter implements KeyListener {
             else if (state == GamePanel.GameState.LOAD_MENU) panel.setGameState(GamePanel.GameState.MENU);
         }
     }
-
     @Override public void keyTyped(KeyEvent e) {}
     @Override public void keyReleased(KeyEvent e) {}
 }

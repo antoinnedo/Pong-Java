@@ -1,94 +1,91 @@
-import java.awt.geom.Rectangle2D;
-
 public class AIController {
     public PlayerController playerController;
-    public Ball ball; // We now reference the Ball object, not just the Rect
+    public Ball ball;
 
     private double targetY = -1;
-    private double reactionTimer = 0;
+    private double targetX = -1;
+    private double randomError = 0; // Error offset to make AI imperfect
 
-    // Tweak these to change difficulty
-    private static final double REACTION_DELAY = 0.2; // AI waits 0.2s before calculating path
-    private static final double RANDOM_ERROR = 20.0;  // +/- 20 pixels error margin
+    // Bounds
+    private double minX, maxX;
+
+    // Constants to tweak AI difficulty
+    private static final double AI_SPEED_FACTOR = 0.75; // AI moves at 75% of max speed
+    private static final double MAX_ERROR = 40.0; // Max pixels the AI can be wrong by
 
     public AIController(PlayerController plrController, Ball ball) {
         this.playerController = plrController;
         this.ball = ball;
     }
 
+    public void setBounds(double minX, double maxX) {
+        this.minX = minX;
+        this.maxX = maxX;
+        this.targetX = (minX + maxX) / 2.0;
+    }
+
     public void update(double dt) {
         playerController.update(dt);
 
-        // Only move if the ball is coming towards the AI (vx > 0)
-        if (ball.vx > 0) {
-
-            // If we haven't picked a target yet (or ball changed direction), calculate one
-            if (targetY == -1) {
-                // Add a small delay to simulate human reaction time
-                reactionTimer += dt;
-                if (reactionTimer > REACTION_DELAY) {
-                    calculateTarget();
-                }
-            }
-
-            // Move towards the target
-            moveTowardsTarget(dt);
-
-        } else {
-            // Ball is moving away: Reset target and center paddle (idle behavior)
-            targetY = -1;
-            reactionTimer = 0;
-            centerPaddle(dt);
+        if (targetX < minX || targetX > maxX) {
+            targetX = (minX + maxX) / 2.0;
         }
+
+        if (ball.vx > 0) {
+            // Ball moving towards AI
+            calculateTarget();
+        } else {
+            // Ball moving away: Reset Error and return to center
+            randomError = 0;
+            targetY = Constants.SCREEN_HEIGHT / 2.0;
+            targetX = (minX + maxX) / 2.0;
+        }
+
+        moveTowardsTarget(dt);
     }
 
     private void calculateTarget() {
-        // 1. Calculate time until ball hits the paddle x-plane
-        double distanceX = playerController.rect.x - (ball.rect.x + ball.rect.width);
-        double timeToReach = Math.abs(distanceX / ball.vx);
-
-        // 2. Predict Y position based on current velocity
+        // 1. Calculate the perfect prediction
+        double timeToReach = Math.abs((playerController.rect.x - ball.rect.x) / ball.vx);
         double predictedY = ball.rect.y + (ball.vy * timeToReach);
 
-        // 3. Account for bounces off top/bottom walls
-        // We simulate the bounces mathematically
+        // Handle wall bounces
         while (predictedY < 0 || predictedY > Constants.SCREEN_HEIGHT - Constants.BALL_WIDTH) {
-            if (predictedY < 0) {
-                predictedY = -predictedY;
-            } else if (predictedY > Constants.SCREEN_HEIGHT - Constants.BALL_WIDTH) {
-                predictedY = 2 * (Constants.SCREEN_HEIGHT - Constants.BALL_WIDTH) - predictedY;
-            }
+            if (predictedY < 0) predictedY = -predictedY;
+            else predictedY = 2 * (Constants.SCREEN_HEIGHT - Constants.BALL_WIDTH) - predictedY;
         }
 
-        // 4. Add randomness (human error)
-        double error = (Math.random() * RANDOM_ERROR * 2) - RANDOM_ERROR;
-        targetY = predictedY + error;
+        // 2. Add Error
+        // We only generate a new error if we haven't yet (randomError is 0)
+        // This prevents the paddle from shaking violently as it recalculates every frame
+        if (randomError == 0) {
+            randomError = (Math.random() * MAX_ERROR * 2) - MAX_ERROR;
+        }
+
+        targetY = predictedY + randomError;
+
+        // Occasional random X movement
+        if (Math.random() < 0.02) {
+            targetX = minX + Math.random() * (maxX - minX);
+        }
     }
 
     private void moveTowardsTarget(double dt) {
-        // Determine the center of our paddle
-        double paddleCenter = playerController.rect.y + (playerController.rect.height / 2.0);
+        // Apply Speed Factor to nerf AI speed
+        double aiDt = dt * AI_SPEED_FACTOR;
 
-        // Tolerance ensures the paddle doesn't "jitter" when it reaches the spot
-        if (Math.abs(paddleCenter - targetY) > 10) {
-            if (paddleCenter < targetY) {
-                playerController.moveDown(dt);
-            } else {
-                playerController.moveUp(dt);
-            }
+        // Move Y
+        double paddleCenterY = playerController.rect.y + (playerController.rect.height / 2.0);
+        if (Math.abs(paddleCenterY - targetY) > 10) {
+            if (paddleCenterY < targetY) playerController.moveDown(aiDt);
+            else playerController.moveUp(aiDt);
         }
-    }
 
-    private void centerPaddle(double dt) {
-        double screenCenter = Constants.SCREEN_HEIGHT / 2.0;
-        double paddleCenter = playerController.rect.y + (playerController.rect.height / 2.0);
-
-        if (Math.abs(paddleCenter - screenCenter) > 10) {
-            if (paddleCenter < screenCenter) {
-                playerController.moveDown(dt);
-            } else {
-                playerController.moveUp(dt);
-            }
+        // Move X
+        double paddleCenterX = playerController.rect.x + (playerController.rect.width / 2.0);
+        if (Math.abs(paddleCenterX - targetX) > 10) {
+            if (paddleCenterX < targetX) playerController.moveRight(aiDt);
+            else playerController.moveLeft(aiDt);
         }
     }
 }
